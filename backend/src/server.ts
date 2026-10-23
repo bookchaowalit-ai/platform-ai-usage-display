@@ -11,6 +11,7 @@ import { LocalSubscriptionQuotaAdapter } from "./adapters/subscription-quotas.js
 import { UsageService } from "./lib/usage-service.js";
 import { RelayStore } from "./lib/relay-store.js";
 import { FirmwareStore } from "./lib/firmware-store.js";
+import { reportError } from "./lib/error-reporter.js";
 import {
   createFirmwareBinaryHandler,
   createFirmwareManifestHandler,
@@ -176,30 +177,48 @@ function probeRoutes(config: AppConfig): RouteDef[] {
 export function createServer(config: AppConfig): http.Server {
   const routes = config.relay.enabled ? relayRoutes(config) : probeRoutes(config);
 
-  return http.createServer((req, res) => {
-    // Parse against a fixed base: only the path matters, and a client-supplied
-    // Host header such as "bad host" made `new URL` throw inside the request
-    // listener, which is an uncaught exception that kills the process.
-    let pathname: string;
-    try {
-      pathname = new URL(req.url ?? "/", "http://localhost").pathname;
-    } catch {
-      sendError(res, 400, "bad_request");
-      return;
-    }
-    const path = pathname.replace(/\/+$/, "") || "/";
+  return http.createServer((req, res) => handleRequest(routes, req, res));
+}
 
-    const route = routes.find((r) => r.paths.includes(path));
-    if (!route) {
-      sendError(res, 404, "not_found");
-      return;
-    }
-    // Only the relay-mode push and firmware publish routes change state.
-    if (!route.methods.includes(req.method ?? "")) {
-      res.setHeader("Allow", route.methods.join(", "));
-      sendError(res, 405, "method_not_allowed");
-      return;
-    }
-    void route.handler(req, res);
-  });
+/**
+ * Routes one request. A handler that throws or rejects used to become an
+ * unhandled promise rejection (and a hung request); it now gets a fixed 500
+ * and the error goes to the console and the error reporter.
+ */
+export function handleRequest(
+  routes: readonly RouteDef[],
+  req: IncomingMessage,
+  res: ServerResponse,
+): void {
+  // Parse against a fixed base: only the path matters, and a client-supplied
+  // Host header such as "bad host" made `new URL` throw inside the request
+  // listener, which is an uncaught exception that kills the process.
+  let pathname: string;
+  try {
+    pathname = new URL(req.url ?? "/", "http://localhost").pathname;
+  } catch {
+    sendError(res, 400, "bad_request");
+    return;
+  }
+  const path = pathname.replace(/\/+$/, "") || "/";
+
+  const route = routes.find((r) => r.paths.includes(path));
+  if (!route) {
+    sendError(res, 404, "not_found");
+    return;
+  }
+  // Only the relay-mode push and firmware publish routes change state.
+  if (!route.methods.includes(req.method ?? "")) {
+    res.setHeader("Allow", route.methods.join(", "));
+    sendError(res, 405, "method_not_allowed");
+    return;
+  }
+  Promise.resolve()
+    .then(() => route.handler(req, res))
+    .catch((err: unknown) => {
+      console.error(`[${route.name}] unhandled handler error`);
+      reportError(err);
+      if (!res.headersSent) sendError(res, 500, "internal_error");
+      else res.destroy();
+    });
 }

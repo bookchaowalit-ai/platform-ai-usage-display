@@ -1,4 +1,5 @@
 import { appConfig } from "./config.js";
+import { initErrorReporting } from "./instrument.js";
 import { createServer } from "./server.js";
 
 function main(): void {
@@ -13,6 +14,7 @@ function main(): void {
     process.exit(1);
   }
 
+  if (initErrorReporting()) console.log("[ai-usage-display] Sentry error reporting on");
   const server = createServer(appConfig);
   server.listen(appConfig.port, appConfig.host, () => {
     console.log(

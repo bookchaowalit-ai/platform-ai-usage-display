@@ -26,6 +26,20 @@ Copy `backend/.env.example` → `backend/.env`. **Never commit real secrets.**
 
 See [hosted-relay.md](./hosted-relay.md).
 
+## Error reporting (Sentry)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SENTRY_DSN` | *(empty)* | Sentry DSN (free org `personal-yu0`). Unset = Sentry is never initialised and nothing is sent. Set it as a host env var only, never in git. |
+| `SENTRY_ENVIRONMENT` | `production` | Sentry environment name |
+
+Errors only (no tracing, breadcrumbs or request data). `backend/src/sentry.ts`
+rebuilds every event from an allowlist, keeps only the app's own fixed error
+messages, and redacts the values of `DEVICE_TOKEN`, `RELAY_PUSH_TOKEN`, the
+provider API keys and `SOLO_EMPIRE_USAGE_API_TOKEN` wherever they appear. The
+file is this repository's own copy, adapted from the shared reference
+`~/work/b-tier-b/sentry-ref/sentry.ts`; tests in `backend/tests/sentry.test.ts`.
+
 ## Local subscription quota
 
 These settings add paid-plan remaining percentage and reset time to every

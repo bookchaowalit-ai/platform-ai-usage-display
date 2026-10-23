@@ -5,6 +5,8 @@ export default defineConfig({
     environment: "node",
     include: ["tests/**/*.test.ts"],
     coverage: {
+      // The gate measures the server code; scripts/*.mjs are host-side helper CLIs.
+      include: ["src/**/*.ts"],
       reporter: ["text", "html"],
     },
   },

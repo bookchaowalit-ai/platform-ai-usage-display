@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { isAuthorized } from "../lib/auth.js";
 import type { UsageService } from "../lib/usage-service.js";
 import { parseWindow } from "../lib/window.js";
+import { reportError } from "../lib/error-reporter.js";
 
 function readUrl(req: IncomingMessage): URL {
   // Fixed base: never build a URL from the client-controlled Host header.
@@ -11,6 +12,7 @@ function readUrl(req: IncomingMessage): URL {
 function logRouteError(route: string, err: unknown): void {
   const detail = err instanceof Error ? err.message : String(err);
   console.error(`[${route}] ${detail}`);
+  reportError(err);
 }
 
 function sendJson(
