@@ -1,0 +1,12 @@
+# Accepted Trivy findings. Each entry needs a statement; review them when the file changes.
+misconfigurations:
+  - id: DS-0002
+    paths:
+      - backend/Dockerfile
+    expired_at: 2027-01-23
+    statement: >-
+      The image has no USER line on purpose for now. Docker Compose already runs it as the
+      host user (user: HOST_UID:HOST_GID, default 1000 = node). On Railway the relay writes
+      OTA images to a volume at /data, which Railway mounts as root; switching to USER node
+      needs RAILWAY_RUN_UID=0 or a volume ownership change on the live service first (owner
+      action). Revisit before the expiry date.
